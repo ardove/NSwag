@@ -16,48 +16,33 @@
 {% endif -%}
 
 {% if HasConfigurationClass -%}
-    public {{ Class }}({{ ConfigurationClass }} configuration{% if InjectHttpClient %}, {{ HttpClientType }} httpClient{% endif %}) : base(configuration)
+    public {{ Class }}({{ ConfigurationClass }} configuration{% if InjectHttpClient %}, {{ HttpClientType }} httpClient{% endif %}, IOptions<JsonOptions> jsonOptions) : base(configuration)
     {
 {%     if InjectHttpClient -%}
         _httpClient = httpClient;
 {%     endif -%}
 {% elsif UseBaseUrl and HasBaseUrl == false %}
-    public {{ Class }}(string baseUrl{% if InjectHttpClient %}, {{ HttpClientType }} httpClient{% endif %})
+    public {{ Class }}(string baseUrl{% if InjectHttpClient %}, {{ HttpClientType }} httpClient{% endif %}, IOptions<JsonOptions> jsonOptions)
     {
         BaseUrl = baseUrl;
 {%     if InjectHttpClient -%}
         _httpClient = httpClient;
 {%     endif -%}
 {% elsif InjectHttpClient %}
-    public {{ Class }}({{ HttpClientType }} httpClient)
+    public {{ Class }}({{ HttpClientType }} httpClient, IOptions<JsonOptions> jsonOptions)
     {
         _httpClient = httpClient;
 {% else -%}
-    public {{ Class }}()
+    public {{ Class }}(IOptions<JsonOptions> jsonOptions)
     {
 {% endif -%}
 {% if UseRequestAndResponseSerializationSettings -%}
-        _requestSettings = new System.Lazy<{{ JsonSerializerSettingsType }}>(() => CreateSerializerSettings(true));
-        _responseSettings = new System.Lazy<{{ JsonSerializerSettingsType }}>(() => CreateSerializerSettings(false));
+        _requestSettings = new System.Lazy<{{ JsonSerializerSettingsType }}>(jsonOptions.Value.SerializerOptions);
+        _responseSettings = new System.Lazy<{{ JsonSerializerSettingsType }}>(jsonOptions.Value.SerializerOptions);
 {% else -%}
-        _settings = new System.Lazy<{{ JsonSerializerSettingsType }}>(CreateSerializerSettings);
+        _settings = new System.Lazy<{{ JsonSerializerSettingsType }}>(jsonOptions.Value.SerializerOptions);
 {% endif -%}
         {% template Client.Class.Constructor %}
-    }
-
-    private {{ JsonSerializerSettingsType }} CreateSerializerSettings({% if UseRequestAndResponseSerializationSettings %}bool isRequest{% endif %})
-    {
-        var settings = {{ JsonSerializerParameterCode }};
-{% if UseSystemTextJson == false and SerializeTypeInformation -%}
-        settings.TypeNameHandling = Newtonsoft.Json.TypeNameHandling.Auto;
-{% endif -%}
-{% if UseSystemTextJson == true and JsonConvertersArrayCode contains "System.Text.Json.Serialization.JsonConverter[]" -%}
-        var converters = {{ JsonConvertersArrayCode }};
-        foreach(var converter in converters)
-            settings.Converters.Add(converter);
-{% endif -%}
-        UpdateJsonSerializerSettings(settings{% if UseRequestAndResponseSerializationSettings %}, isRequest{% endif %});
-        return settings;
     }
 
 {% if UseBaseUrl and GenerateBaseUrlProperty -%}
